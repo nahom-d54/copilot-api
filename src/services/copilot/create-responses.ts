@@ -46,7 +46,21 @@ export interface ResponsesPayload {
   reasoning?: {
     effort?: string
   } | null
+  text?: ResponsesTextFormat | null
   user?: string | null
+}
+
+export type ResponsesTextFormat = {
+  format:
+    | { type: "text" }
+    | { type: "json_object" }
+    | {
+        type: "json_schema"
+        name: string
+        description?: string
+        schema?: Record<string, unknown>
+        strict?: boolean
+      }
 }
 
 export type ResponsesInput = string | Array<ResponsesInputMessage>

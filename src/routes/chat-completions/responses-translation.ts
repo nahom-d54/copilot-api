@@ -9,6 +9,7 @@ import type {
   ChatCompletionsPayload,
   ContentPart,
   Message,
+  ResponseFormat,
   Tool,
   ToolCall,
 } from "~/services/copilot/create-chat-completions"
@@ -17,6 +18,7 @@ import type {
   ResponsesInputMessage,
   ResponsesPayload,
   ResponsesResponse,
+  ResponsesTextFormat,
   ResponsesTool,
 } from "~/services/copilot/create-responses"
 
@@ -37,6 +39,7 @@ export function chatCompletionsToResponses(
     tools: translateTools(payload.tools),
     tool_choice: translateToolChoice(payload.tool_choice),
     reasoning: reasoningEffort ? { effort: reasoningEffort } : undefined,
+    text: translateResponseFormat(payload.response_format),
     user: payload.user,
   }
 }
@@ -151,6 +154,27 @@ function translateToolChoice(
   }
   // { type: "function", function: { name } } → for Responses API we just use "auto"
   return "auto"
+}
+
+function translateResponseFormat(
+  format: ResponseFormat | null | undefined,
+): ResponsesTextFormat | undefined {
+  if (!format) return undefined
+  if (format.type === "json_object") {
+    return { format: { type: "json_object" } }
+  }
+  if (format.type === "json_schema") {
+    return {
+      format: {
+        type: "json_schema",
+        name: format.json_schema.name,
+        description: format.json_schema.description,
+        schema: format.json_schema.schema,
+        strict: format.json_schema.strict,
+      },
+    }
+  }
+  return undefined
 }
 
 // --- Response: Responses → Chat Completions (non-streaming) ---

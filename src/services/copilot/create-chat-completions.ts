@@ -138,7 +138,7 @@ export interface ChatCompletionsPayload {
   presence_penalty?: number | null
   logit_bias?: Record<string, number> | null
   logprobs?: boolean | null
-  response_format?: { type: "json_object" } | null
+  response_format?: ResponseFormat | null
   seed?: number | null
   tools?: Array<Tool> | null
   tool_choice?:
@@ -191,3 +191,16 @@ export interface ImagePart {
     detail?: "low" | "high" | "auto"
   }
 }
+
+export type ResponseFormat =
+  | { type: "text" }
+  | { type: "json_object" }
+  | {
+      type: "json_schema"
+      json_schema: {
+        name: string
+        description?: string
+        schema?: Record<string, unknown>
+        strict?: boolean
+      }
+    }

@@ -115,6 +115,68 @@ describe("Chat Completions -> Responses API translation", () => {
     expect(result.tools?.[0].name).toBe("get_weather")
     expect(result.tools?.[0].type).toBe("function")
   })
+
+  test("should translate response_format json_object to text format", () => {
+    const payload: ChatCompletionsPayload = {
+      model: "gpt-4o",
+      messages: [{ role: "user", content: "Reply in JSON" }],
+      response_format: { type: "json_object" },
+    }
+
+    const result = chatCompletionsToResponses(payload)
+    expect(result.text).toEqual({ format: { type: "json_object" } })
+  })
+
+  test("should translate response_format json_schema to text format", () => {
+    const payload: ChatCompletionsPayload = {
+      model: "gpt-4o",
+      messages: [{ role: "user", content: "Evaluate this" }],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "EvaluationAnswerSchema",
+          schema: {
+            type: "object",
+            properties: {
+              preferred: { type: "string" },
+              pros: { type: "string" },
+              cons: { type: "string" },
+            },
+            required: ["preferred", "pros", "cons"],
+          },
+          strict: true,
+        },
+      },
+    }
+
+    const result = chatCompletionsToResponses(payload)
+    expect(result.text).toEqual({
+      format: {
+        type: "json_schema",
+        name: "EvaluationAnswerSchema",
+        schema: {
+          type: "object",
+          properties: {
+            preferred: { type: "string" },
+            pros: { type: "string" },
+            cons: { type: "string" },
+          },
+          required: ["preferred", "pros", "cons"],
+        },
+        strict: true,
+      },
+    })
+  })
+
+  test("should not set text format when response_format is absent", () => {
+    const payload: ChatCompletionsPayload = {
+      model: "gpt-4o",
+      messages: [{ role: "user", content: "Hi" }],
+    }
+
+    const result = chatCompletionsToResponses(payload)
+    expect(result.text).toBeUndefined()
+  })
 })
 
 describe("Responses API -> Chat Completions translation", () => {
