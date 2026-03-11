@@ -21,6 +21,7 @@ export interface AnthropicMessagesPayload {
   thinking?: {
     type: "enabled"
     budget_tokens?: number
+    effort?: string
   }
   service_tier?: "auto" | "standard_only"
 }

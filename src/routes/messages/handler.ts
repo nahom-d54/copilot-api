@@ -4,12 +4,14 @@ import consola from "consola"
 import { streamSSE } from "hono/streaming"
 
 import { awaitApproval } from "~/lib/approval"
+import { isClaudeModel, parseModelName } from "~/lib/model-routing"
 import { checkRateLimit } from "~/lib/rate-limit"
 import { state } from "~/lib/state"
 import {
   createChatCompletions,
   type ChatCompletionChunk,
   type ChatCompletionResponse,
+  type ChatCompletionsPayload,
 } from "~/services/copilot/create-chat-completions"
 
 import {
@@ -28,7 +30,46 @@ export async function handleCompletion(c: Context) {
   const anthropicPayload = await c.req.json<AnthropicMessagesPayload>()
   consola.debug("Anthropic request payload:", JSON.stringify(anthropicPayload))
 
-  const openAIPayload = translateToOpenAI(anthropicPayload)
+  // Parse model name for reasoning effort suffix
+  const { model: baseModel, reasoningEffort } = parseModelName(
+    anthropicPayload.model,
+  )
+
+  // Apply reasoning effort to the Anthropic payload before translation
+  const adjustedPayload: AnthropicMessagesPayload = {
+    ...anthropicPayload,
+    model: baseModel,
+    ...(reasoningEffort && isClaudeModel(baseModel) ?
+      {
+        thinking:
+          anthropicPayload.thinking ?
+            { ...anthropicPayload.thinking, effort: reasoningEffort }
+          : { type: "enabled" as const, effort: reasoningEffort },
+      }
+    : {}),
+  }
+
+  let openAIPayload: ChatCompletionsPayload = translateToOpenAI(adjustedPayload)
+
+  // Add reasoning effort for the underlying API call
+  if (reasoningEffort) {
+    openAIPayload = {
+      ...openAIPayload,
+      reasoning_effort: reasoningEffort,
+      ...(isClaudeModel(baseModel) ?
+        {
+          thinking: adjustedPayload.thinking ?? {
+            type: "enabled",
+            effort: reasoningEffort,
+          },
+        }
+      : {}),
+    } as ChatCompletionsPayload & {
+      reasoning_effort: string
+      thinking?: { type: string; effort?: string }
+    }
+  }
+
   consola.debug(
     "Translated OpenAI request payload:",
     JSON.stringify(openAIPayload),
