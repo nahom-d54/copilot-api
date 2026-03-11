@@ -7,6 +7,7 @@ import { awaitApproval } from "~/lib/approval"
 import {
   isClaudeModel,
   isCodexModel,
+  isGptModel,
   parseModelName,
 } from "~/lib/model-routing"
 import { checkRateLimit } from "~/lib/rate-limit"
@@ -67,9 +68,9 @@ export async function handleCompletion(c: Context) {
     consola.debug("Set max_tokens to:", JSON.stringify(payload.max_tokens))
   }
 
-  // Route codex models through Responses API
-  if (isCodexModel(payload.model)) {
-    return handleCodexCompletion(c, payload, reasoningEffort)
+  // Route codex and GPT models through Responses API
+  if (isCodexModel(payload.model) || isGptModel(payload.model)) {
+    return handleResponsesCompletion(c, payload, reasoningEffort)
   }
 
   // For Claude models with reasoning effort, add thinking configuration
@@ -101,31 +102,34 @@ export async function handleCompletion(c: Context) {
   })
 }
 
-async function handleCodexCompletion(
+async function handleResponsesCompletion(
   c: Context,
   payload: ChatCompletionsPayload,
   reasoningEffort?: string,
 ) {
   const responsesPayload = chatCompletionsToResponses(payload, reasoningEffort)
   consola.debug(
-    "Codex: translated to Responses API payload:",
+    "Responses: translated to Responses API payload:",
     JSON.stringify(responsesPayload).slice(-400),
   )
 
   const response = await createResponses(responsesPayload)
 
   if (isResponsesNonStreaming(response)) {
-    consola.debug("Codex: non-streaming response:", JSON.stringify(response))
+    consola.debug(
+      "Responses: non-streaming response:",
+      JSON.stringify(response),
+    )
     const chatResponse = responsesToChatCompletion(response)
     return c.json(chatResponse)
   }
 
-  consola.debug("Codex: streaming response")
+  consola.debug("Responses: streaming response")
   return streamSSE(c, async (stream) => {
     const streamState = createResponsesStreamState()
 
     for await (const rawEvent of response) {
-      consola.debug("Codex raw stream event:", JSON.stringify(rawEvent))
+      consola.debug("Responses raw stream event:", JSON.stringify(rawEvent))
       if (rawEvent.data === "[DONE]") {
         await stream.writeSSE({ data: "[DONE]" })
         break
@@ -137,7 +141,7 @@ async function handleCodexCompletion(
       const chunks = responsesEventToChatCompletionChunks(event, streamState)
 
       for (const chunk of chunks) {
-        consola.debug("Codex translated chunk:", JSON.stringify(chunk))
+        consola.debug("Responses translated chunk:", JSON.stringify(chunk))
         await stream.writeSSE({
           data: JSON.stringify(chunk),
         } as SSEMessage)

@@ -4,6 +4,7 @@ import {
   expandModelsWithReasoningVariants,
   isClaudeModel,
   isCodexModel,
+  isGptModel,
   parseModelName,
 } from "../src/lib/model-routing"
 
@@ -100,6 +101,20 @@ describe("isClaudeModel", () => {
   })
 })
 
+describe("isGptModel", () => {
+  test("should return true for gpt models", () => {
+    expect(isGptModel("gpt-4o")).toBe(true)
+    expect(isGptModel("gpt-4.1")).toBe(true)
+    expect(isGptModel("gpt-4.1-mini")).toBe(true)
+    expect(isGptModel("gpt-5.3-codex")).toBe(true)
+  })
+
+  test("should return false for non-gpt models", () => {
+    expect(isGptModel("claude-opus-4.6")).toBe(false)
+    expect(isGptModel("o3")).toBe(false)
+  })
+})
+
 describe("expandModelsWithReasoningVariants", () => {
   test("should expand codex models with all 4 levels", () => {
     const base = [{ id: "gpt-5.3-codex" }]
@@ -123,19 +138,30 @@ describe("expandModelsWithReasoningVariants", () => {
   })
 
   test("should not expand regular models", () => {
-    const base = [{ id: "gpt-4o" }]
+    const base = [{ id: "o3" }]
     const variants = expandModelsWithReasoningVariants(base)
     expect(variants).toEqual([])
   })
 
+  test("should expand gpt models with 3 reasoning levels", () => {
+    const base = [{ id: "gpt-4o" }]
+    const variants = expandModelsWithReasoningVariants(base)
+    expect(variants).toEqual([
+      { id: "gpt-4o(low)" },
+      { id: "gpt-4o(medium)" },
+      { id: "gpt-4o(high)" },
+    ])
+  })
+
   test("should expand mixed list correctly", () => {
     const base = [
+      { id: "o3" },
       { id: "gpt-5.4" },
       { id: "gpt-5.3-codex" },
       { id: "claude-opus-4.6" },
       { id: "claude-sonnet-4.6" },
     ]
     const variants = expandModelsWithReasoningVariants(base)
-    expect(variants).toHaveLength(4 + 3 + 3) // codex(4) + opus(3) + sonnet(3)
+    expect(variants).toHaveLength(3 + 4 + 3 + 3) // gpt(3) + codex(4) + opus(3) + sonnet(3)
   })
 })

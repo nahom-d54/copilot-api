@@ -34,6 +34,10 @@ export function isCodexModel(model: string): boolean {
   return CODEX_MODEL_RE.test(model)
 }
 
+export function isGptModel(model: string): boolean {
+  return model.startsWith("gpt-")
+}
+
 export function isClaudeModel(model: string): boolean {
   return model.startsWith("claude-")
 }
@@ -47,6 +51,12 @@ const REASONING_EFFORT_LEVELS: Array<ReasoningEffort> = [
 ]
 
 const CLAUDE_REASONING_EFFORT_LEVELS: Array<ReasoningEffort> = [
+  "low",
+  "medium",
+  "high",
+]
+
+const GPT_REASONING_EFFORT_LEVELS: Array<ReasoningEffort> = [
   "low",
   "medium",
   "high",
@@ -68,6 +78,10 @@ export function expandModelsWithReasoningVariants(
       }
     } else if (isClaudeModel(m.id)) {
       for (const level of CLAUDE_REASONING_EFFORT_LEVELS) {
+        extras.push({ id: `${m.id}(${level})` })
+      }
+    } else if (isGptModel(m.id)) {
+      for (const level of GPT_REASONING_EFFORT_LEVELS) {
         extras.push({ id: `${m.id}(${level})` })
       }
     }
