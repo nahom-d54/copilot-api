@@ -38,6 +38,12 @@ export function isGptModel(model: string): boolean {
   return model.startsWith("gpt-")
 }
 
+const GPT5_PLUS_RE = /^gpt-(?:[5-9]|\d{2,})/
+
+export function isGpt5PlusModel(model: string): boolean {
+  return GPT5_PLUS_RE.test(model)
+}
+
 export function isClaudeModel(model: string): boolean {
   return model.startsWith("claude-")
 }
@@ -80,7 +86,7 @@ export function expandModelsWithReasoningVariants(
       for (const level of CLAUDE_REASONING_EFFORT_LEVELS) {
         extras.push({ id: `${m.id}(${level})` })
       }
-    } else if (isGptModel(m.id)) {
+    } else if (isGpt5PlusModel(m.id)) {
       for (const level of GPT_REASONING_EFFORT_LEVELS) {
         extras.push({ id: `${m.id}(${level})` })
       }

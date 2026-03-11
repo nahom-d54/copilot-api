@@ -4,6 +4,7 @@ import {
   expandModelsWithReasoningVariants,
   isClaudeModel,
   isCodexModel,
+  isGpt5PlusModel,
   isGptModel,
   parseModelName,
 } from "../src/lib/model-routing"
@@ -115,6 +116,29 @@ describe("isGptModel", () => {
   })
 })
 
+describe("isGpt5PlusModel", () => {
+  test("should return true for gpt-5+ models", () => {
+    expect(isGpt5PlusModel("gpt-5")).toBe(true)
+    expect(isGpt5PlusModel("gpt-5.3")).toBe(true)
+    expect(isGpt5PlusModel("gpt-5.4")).toBe(true)
+    expect(isGpt5PlusModel("gpt-6")).toBe(true)
+    expect(isGpt5PlusModel("gpt-10")).toBe(true)
+  })
+
+  test("should return false for gpt-4.x and below", () => {
+    expect(isGpt5PlusModel("gpt-4o")).toBe(false)
+    expect(isGpt5PlusModel("gpt-4.1")).toBe(false)
+    expect(isGpt5PlusModel("gpt-4.1-mini")).toBe(false)
+    expect(isGpt5PlusModel("gpt-4")).toBe(false)
+    expect(isGpt5PlusModel("gpt-3.5-turbo")).toBe(false)
+  })
+
+  test("should return false for non-gpt models", () => {
+    expect(isGpt5PlusModel("claude-opus-4.6")).toBe(false)
+    expect(isGpt5PlusModel("o3")).toBe(false)
+  })
+})
+
 describe("expandModelsWithReasoningVariants", () => {
   test("should expand codex models with all 4 levels", () => {
     const base = [{ id: "gpt-5.3-codex" }]
@@ -143,25 +167,32 @@ describe("expandModelsWithReasoningVariants", () => {
     expect(variants).toEqual([])
   })
 
-  test("should expand gpt models with 3 reasoning levels", () => {
-    const base = [{ id: "gpt-4o" }]
+  test("should not expand gpt-4.x models", () => {
+    const base = [{ id: "gpt-4o" }, { id: "gpt-4.1" }, { id: "gpt-4.1-mini" }]
+    const variants = expandModelsWithReasoningVariants(base)
+    expect(variants).toEqual([])
+  })
+
+  test("should expand gpt-5+ models with 3 reasoning levels", () => {
+    const base = [{ id: "gpt-5.4" }]
     const variants = expandModelsWithReasoningVariants(base)
     expect(variants).toEqual([
-      { id: "gpt-4o(low)" },
-      { id: "gpt-4o(medium)" },
-      { id: "gpt-4o(high)" },
+      { id: "gpt-5.4(low)" },
+      { id: "gpt-5.4(medium)" },
+      { id: "gpt-5.4(high)" },
     ])
   })
 
   test("should expand mixed list correctly", () => {
     const base = [
       { id: "o3" },
+      { id: "gpt-4o" },
       { id: "gpt-5.4" },
       { id: "gpt-5.3-codex" },
       { id: "claude-opus-4.6" },
       { id: "claude-sonnet-4.6" },
     ]
     const variants = expandModelsWithReasoningVariants(base)
-    expect(variants).toHaveLength(3 + 4 + 3 + 3) // gpt(3) + codex(4) + opus(3) + sonnet(3)
+    expect(variants).toHaveLength(3 + 4 + 3 + 3) // gpt5(3) + codex(4) + opus(3) + sonnet(3)
   })
 })

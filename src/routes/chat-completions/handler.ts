@@ -7,7 +7,7 @@ import { awaitApproval } from "~/lib/approval"
 import {
   isClaudeModel,
   isCodexModel,
-  isGptModel,
+  isGpt5PlusModel,
   parseModelName,
 } from "~/lib/model-routing"
 import { checkRateLimit } from "~/lib/rate-limit"
@@ -68,8 +68,8 @@ export async function handleCompletion(c: Context) {
     consola.debug("Set max_tokens to:", JSON.stringify(payload.max_tokens))
   }
 
-  // Route codex and GPT models through Responses API
-  if (isCodexModel(payload.model) || isGptModel(payload.model)) {
+  // Route codex and GPT-5+ models through Responses API
+  if (isCodexModel(payload.model) || isGpt5PlusModel(payload.model)) {
     return handleResponsesCompletion(c, payload, reasoningEffort)
   }
 
