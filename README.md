@@ -32,6 +32,9 @@ A reverse-engineered proxy for the GitHub Copilot API that exposes it as an Open
 ## Features
 
 - **OpenAI & Anthropic Compatibility**: Exposes GitHub Copilot as an OpenAI-compatible (`/v1/chat/completions`, `/v1/models`, `/v1/embeddings`) and Anthropic-compatible (`/v1/messages`) API.
+- **Responses API Support**: Codex models (e.g. `gpt-5.3-codex`) are transparently routed through the Copilot Responses API (`/v1/responses`). Clients using the standard Chat Completions format work without any changes.
+- **Reasoning Effort Control**: Append a level suffix to any model name to control reasoning effort — `gpt-5.3-codex(high)`, `claude-opus-4.6(medium)`, etc. Suffixes are stripped before the request is forwarded, and the appropriate `reasoning_effort` / `thinking` fields are set automatically.
+- **Claude Extended Thinking**: Claude models with a level suffix automatically get the `thinking` configuration that Anthropic expects. Existing `thinking` payloads are merged rather than overwritten.
 - **Claude Code Integration**: Easily configure and launch [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) to use Copilot as its backend with a simple command-line flag (`--claude-code`).
 - **Usage Dashboard**: A web-based dashboard to monitor your Copilot API usage, view quotas, and see detailed statistics.
 - **Rate Limit Control**: Manage API usage with rate-limiting options (`--rate-limit`) and a waiting mechanism (`--wait`) to prevent errors from rapid requests.
@@ -185,11 +188,12 @@ The server exposes several endpoints to interact with the Copilot API. It provid
 
 These endpoints mimic the OpenAI API structure.
 
-| Endpoint                    | Method | Description                                               |
-| --------------------------- | ------ | --------------------------------------------------------- |
-| `POST /v1/chat/completions` | `POST` | Creates a model response for the given chat conversation. |
-| `GET /v1/models`            | `GET`  | Lists the currently available models.                     |
-| `POST /v1/embeddings`       | `POST` | Creates an embedding vector representing the input text.  |
+| Endpoint                    | Method | Description                                                                                                                            |
+| --------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /v1/chat/completions` | `POST` | Creates a model response for the given chat conversation. Codex models are automatically routed through the Responses API.             |
+| `GET /v1/models`            | `GET`  | Lists available models, including reasoning-effort variants (e.g. `gpt-5.3-codex(high)`).                                              |
+| `POST /v1/embeddings`       | `POST` | Creates an embedding vector representing the input text.                                                                               |
+| `POST /v1/responses`        | `POST` | Direct passthrough to the Copilot Responses API. Use this if you want to send Responses API payloads directly without any translation. |
 
 ### Anthropic Compatible Endpoints
 
@@ -315,9 +319,7 @@ Here is an example `.claude/settings.json` file:
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
   },
   "permissions": {
-    "deny": [
-      "WebSearch"
-    ]
+    "deny": ["WebSearch"]
   }
 }
 ```
@@ -340,6 +342,51 @@ bun run dev
 
 ```sh
 bun run start
+```
+
+## Model Routing and Reasoning Effort
+
+### Codex Models via Responses API
+
+Models that contain `codex` in their name (e.g. `gpt-5.3-codex`) only work through the Copilot Responses API, not through `/v1/chat/completions`. The proxy handles this transparently: when a codex model is requested at `/v1/chat/completions`, the payload is automatically converted to Responses API format, sent to the Copilot backend, and the response is converted back to Chat Completions format before being returned. Clients do not need to change anything.
+
+You can also use the Responses API directly at `/v1/responses` if you prefer.
+
+### Reasoning Effort via Model Name Suffix
+
+You can control reasoning effort by appending a level in parentheses to the model name:
+
+```
+gpt-5.3-codex(low)     -> gpt-5.3-codex with reasoning_effort: "low"
+gpt-5.3-codex(medium)  -> gpt-5.3-codex with reasoning_effort: "medium"
+gpt-5.3-codex(high)    -> gpt-5.3-codex with reasoning_effort: "high"
+gpt-5.3-codex(xhigh)   -> gpt-5.3-codex with reasoning_effort: "xhigh"
+```
+
+Using the plain model name without a suffix works the same as before — no reasoning effort is set.
+
+### Claude Extended Thinking
+
+Claude models support the same level suffix, which enables extended thinking:
+
+```
+claude-opus-4.6(high)        -> sets reasoning_effort: "high" and thinking: { type: "enabled", effort: "high" }
+claude-opus-4.6-fast(medium) -> same pattern
+claude-sonnet-4.6(low)       -> same pattern
+```
+
+If your payload already contains a `thinking` object (e.g. with `budget_tokens`), the proxy merges the effort level into it instead of overwriting it. This works for both `/v1/chat/completions` and `/v1/messages`.
+
+### Expanded Model List
+
+`GET /v1/models` returns all level-suffixed variants alongside the base models, so clients that read the model list can discover them automatically:
+
+```
+gpt-5.4
+gpt-5.3-codex, gpt-5.3-codex(low), gpt-5.3-codex(medium), gpt-5.3-codex(high), gpt-5.3-codex(xhigh)
+claude-opus-4.6, claude-opus-4.6(low), claude-opus-4.6(medium), claude-opus-4.6(high)
+claude-opus-4.6-fast, claude-opus-4.6-fast(low), claude-opus-4.6-fast(medium), claude-opus-4.6-fast(high)
+claude-sonnet-4.6, claude-sonnet-4.6(low), claude-sonnet-4.6(medium), claude-sonnet-4.6(high)
 ```
 
 ## Usage Tips
